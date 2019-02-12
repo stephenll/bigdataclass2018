@@ -1,13 +1,15 @@
-```{r, section03, include = FALSE}
-knitr::opts_chunk$set(eval = TRUE)
+```{r, data-transformation, include = FALSE}
+knitr::opts_chunk$set(eval = as.logical(Sys.getenv("evaluate")))
 ```
 
 # Data transformation
 
-```{r, cathup3, include = FALSE}
+```{r, catchup3, include = FALSE}
 
 library(dplyr)
 library(dbplyr)
+library(DBI)
+library(odbc)
 
 # Class catchup
 con <- DBI::dbConnect(odbc::odbc(), "Postgres Dev")
@@ -112,7 +114,7 @@ flights %>%
 3. Use `summarise_if()` to summarize only if the field meets a criterion
 ```{r}
 flights %>%
-  summarise_if(is.numeric,mean, na.rm = TRUE)
+  summarise_if(is.numeric, mean, na.rm = TRUE)
 ```
 
 4. Combine with `group_by()` to create more complex results
@@ -121,6 +123,26 @@ flights %>%
   select(month, depdelay, arrdelay) %>%
   group_by(month) %>%
   summarise_all(mean, na.rm = TRUE)
+```
+
+## Data correlation
+*Calculate correlation values in database*
+
+1. Correlate select numeric columns from the flights table
+```{r}
+library(corrr)
+
+flights_cor <- flights %>% 
+  select(contains("delay")) %>% 
+  correlate(use = "complete.obs")
+```
+
+2. Explore the `flights_cor` data
+```{r}
+flights_cor %>% 
+  rearrange() %>% 
+  shave() %>% 
+  fashion()
 ```
 
 ## View record level data
@@ -166,7 +188,7 @@ flights %>%
 ## Case statements
 *See how to use the flexibility of case statements for special cases*
 
-1. Use `case_when()` to bucket each month one of four seasons
+1. Use `case_when()` to bucket each month into one of four seasons
 ```{r}
 flights %>%
   mutate(
@@ -239,7 +261,7 @@ planes <- nycflights13::planes
 
 2. Using `DBI`, copy the `planes` data to the datawarehouse as a temporary table, and load it to a variable
 ```{r}
-dbWriteTable(con, "planes", planes, temporary = TRUE)
+copy_to(con, planes, "planes", temporary = TRUE)
 tbl_planes <- tbl(con, "planes")
 ```
 
@@ -282,6 +304,20 @@ combined %>%
             max_flights = max(n, na.rm = TRUE),
             min_flights = min(n, na.rm = TRUE))
 ``` 
+
+8. Use `explain()` to see the query plan
+```{r}
+combined %>%
+  filter(manufacturer == "MCDONNELL DOUGLAS") %>%
+  group_by(tailnum) %>%
+  tally() %>%
+  summarise(planes = n(),
+            avg_flights = mean(n, na.rm = TRUE),
+            max_flights = max(n, na.rm = TRUE),
+            min_flights = min(n, na.rm = TRUE)) %>% 
+  explain()
+```
+
 
 8. Disconnect from the database
 ```{r}

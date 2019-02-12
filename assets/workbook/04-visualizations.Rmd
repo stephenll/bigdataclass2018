@@ -1,10 +1,11 @@
-```{r, section04, include = FALSE}
-knitr::opts_chunk$set(eval = TRUE)
+```{r, visualizations, include = FALSE}
+knitr::opts_chunk$set(eval = as.logical(Sys.getenv("evaluate")))
 ```
 
 # Data Visualizations
 
 ```{r, catchup4, include = FALSE}
+library(DBI)
 library(dplyr)
 library(dbplyr)
 library(dbplot)
@@ -111,15 +112,42 @@ flights %>%
   head(5) %>%
   collect() %>%
   ggplot() +      #Don't forget to switch to `+`
-    geom_col(aes(x = uniquecarrier, y = n, fill = n)) +  #Add fill
-    theme(legend.position="none") +    # Turn legend off
-    coord_flip() +  # Rotate cols into rows
-    labs(title = "Top 5 Carriers", 
-         subtitle = "Source: Datawarehouse",
-         x = "Carrier Name", 
-         y = "# of Flights")
-    
+  geom_col(aes(x = forcats::fct_reorder(uniquecarrier, n), # Order by n
+               y = n, 
+               fill = n), # Add fill
+           show.legend = FALSE) +  # Turn legend off
+  scale_y_continuous(labels = scales::comma) + # Add commas to axis label numbers
+  coord_flip() +  # Rotate cols into rows
+  labs(title = "Top 5 Carriers", 
+       subtitle = "Source: Datawarehouse",
+       x = "Carrier Name", 
+       y = "# of Flights")
 ```
+
+## Plot correlations
+*Use the `corrr` package to plot correlations*
+
+1. Correlate select numeric columns from the flights table
+```{r}
+library(corrr)
+
+flights_cor <- flights %>% 
+  select(contains("delay")) %>% 
+  correlate(use = "complete.obs")
+```
+
+2. Visualize the correlations
+```{r}
+flights_cor %>% 
+  rplot()
+```
+
+3. Visualize correlation network
+```{r}
+flights_cor %>% 
+  network_plot(min_cor = .15)
+```
+
 
 ## Two or more queries
 *Learn how to use `pull()` to pass a set of values to be used on a secondary query*
@@ -139,7 +167,7 @@ top5
 2. Use `%in%` to pass the `top5` vector to a filter
 ```{r}
 flights %>%
-  filter(uniquecarrier %in% top5) 
+  filter(uniquecarrier %in% top5)
 ```
 
 3. Group by carrier and get the average arrival delay
@@ -150,7 +178,7 @@ flights %>%
   summarise(n = mean(arrdelay, na.rm = TRUE))
 ```
 
-4. Copy the final `ggplot()` code from the *Plot specific segment* section. Update the `y` labs.
+4. Copy the final `ggplot()` code from the *Plot specific data segments* section. Update the `y` labs.
 ```{r}
 flights %>%
   filter(uniquecarrier %in% top5) %>%
@@ -159,13 +187,15 @@ flights %>%
   # From previous section ----------------------------------------------
   collect() %>%
   ggplot() +      #Don't forget to switch to `+`
-    geom_col(aes(x = uniquecarrier, y = n, fill = n)) +  #Add fill
-    theme(legend.position="none") +    # Turn legend off
-    coord_flip() +  # Rotate cols into rows
-    labs(title = "Top 5 Carriers", 
-         subtitle = "Source: Datawarehouse",
-         x = "Carrier Name", 
-         y = "Average Delay") 
+  geom_col(aes(x = forcats::fct_reorder(uniquecarrier, n), # Order by n
+               y = n, 
+               fill = n), # Add fill
+           show.legend = FALSE) +  # Turn legend off
+  coord_flip() +  # Rotate cols into rows
+  labs(title = "Top 5 Carriers", 
+       subtitle = "Source: Datawarehouse",
+       x = "Carrier Name", 
+       y = "Average Delay")
 ```
 
 ## Visualize using `dbplot`
@@ -179,8 +209,17 @@ library(dbplot)
 2. Create a line plot using the helper function `dbplot_line()`
 
 ```{r}
+flights %>% 
+  count(month)
+```
+
+
+```{r}
 flights %>%
   dbplot_line(month)
+
+flights %>% 
+  db_compute_bins(month)
 ```
 
 3. Update the plot's labels
@@ -212,10 +251,8 @@ flights %>%
 ```
 
 
-
 ## Create a histogram
 *Use the package's function to easily create a histogram*
-
 
 1. Use the `dbplot_histogram()` to build the histogram
 ```{r}
@@ -248,7 +285,7 @@ flights %>%
 
 ## Using the `calculate` functions
 
-1. Use the `db_comptue_raster()` function to get the underlying results that feed the plot
+1. Use the `db_compute_raster()` function to get the underlying results that feed the plot
 ```{r}
 departure <- flights %>%
   db_compute_raster(deptime, arrtime)
@@ -272,7 +309,7 @@ departure %>%
 db_bin(field)
 ```
 
-2. Use `trasnlate_sql()` and `simulate_odbc_postgresql()` to see an example of what the resulting SQL statement looks like
+2. Use `translate_sql()` and `simulate_odbc_postgresql()` to see an example of what the resulting SQL statement looks like
 ```{r}
 translate_sql(!! db_bin(field), con = simulate_odbc_postgresql())
 ```

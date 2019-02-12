@@ -1,4 +1,5 @@
-```{r, section02, include = FALSE}
+```{r, dplyr-basics, include = FALSE}
+#knitr::opts_chunk$set(eval = as.logical(Sys.getenv("evaluate")))
 knitr::opts_chunk$set(eval = TRUE)
 ```
 
@@ -52,7 +53,7 @@ carriers <- tbl(con, in_schema("datawarehouse", "carrier"))
 ```
 
 ## Under the hood 
-* Use `show_query()` to preview the SQL statement that will be sent to the database*
+*Use `show_query()` to preview the SQL statement that will be sent to the database*
 
 1. SQL statement that actually runs when we ran `airports` as a command
 ```{r}
@@ -77,6 +78,13 @@ airports %>%
 airports %>%
   head() %>%
   sql_render(con = simulate_mssql()) 
+```
+
+5. Use `explain()` to explore the query plan
+```{r}
+airports %>% 
+  head() %>% 
+  explain()
 ```
 
 ## Un-translated R commands
